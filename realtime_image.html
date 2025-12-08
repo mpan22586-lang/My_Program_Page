@@ -76,7 +76,7 @@
         </div>
         
     </div>
-動くか怪しいよ
+
     <script>
         const video = document.getElementById('webcamStream');
         const canvas = document.getElementById('processingCanvas');
@@ -218,8 +218,11 @@
                 clearBoundingBoxes();
 
                 try {
-                    // APIエンドポイントにデータを送信
-                    const response = await fetch('/detect_object', {
+                    // 💥 修正箇所 💥 Renderの公開URLを使用します。
+                    // URLは「https://my-program-page.onrender.com/detect_object」
+                    const API_URL = 'https://my-program-page.onrender.com/detect_object'; 
+
+                    const response = await fetch(API_URL, {
                         method: 'POST',
                         body: formData,
                     });
