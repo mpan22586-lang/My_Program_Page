@@ -92,7 +92,7 @@
     </div>
     
     <canvas id="ocr-canvas"></canvas>
-    <script src="main.js"></script> <script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script> <script>
         // HTML要素の取得
         const videoStream = document.getElementById('video-stream');
         const outputDiv = document.getElementById('translation-output');
@@ -297,4 +297,5 @@
     </script>
 </body>
 </html>
+
 
