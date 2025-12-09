@@ -76,7 +76,7 @@
         
     </div>
 
-    <script>
+    <script src="{{ url_for('static', filename='main.js') }}">
         const video = document.getElementById('webcamStream');
         const canvas = document.getElementById('processingCanvas');
         const context = canvas.getContext('2d', { willReadFrequently: true });
@@ -274,4 +274,5 @@
     </script>
 </body>
 </html>
+
 
