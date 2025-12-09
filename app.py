@@ -1,144 +1,135 @@
 import os
 import io
-import cv2
-import numpy as np
-from PIL import Image
-from flask import Flask, render_template, request, jsonify
-# Google Cloud APIのインポート
+import json
+import base64
+from flask import Flask, request, jsonify, render_template
 from google.cloud import vision
-from google.cloud import translate_v2 as translate
+from google.oauth2 import service_account
+from werkzeug.exceptions import BadRequest
 
-# --- 1. アプリケーションとクライアントの初期化 ---
+# ----------------------------------------------------
+# 1. Flaskアプリケーションの初期化
+# ----------------------------------------------------
+app = Flask(__name__)
 
-# Renderなどの環境でFlaskがテンプレートを認識できるように設定
-app = Flask(__name__, 
-            template_folder='.', 
-            static_folder='static')
+# ----------------------------------------------------
+# 2. Google Cloud Vision API クライアントの認証と初期化
+# ----------------------------------------------------
 
-# Google Cloud API クライアントの初期化 (認証情報が環境変数で設定されている必要があります)
-vision_client = vision.ImageAnnotatorClient()
-translate_client = translate.Client()
+# Render環境変数からJSON認証情報を読み込むためのカスタムロジック
+credential_json = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS_JSON')
 
-# OpenCVの顔検出器の初期化 (カメラ検出機能用)
-# Render環境ではパスの調整が必要な場合があります
-FACE_CASCADE_PATH = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-face_cascade = cv2.CascadeClassifier(FACE_CASCADE_PATH)
+if credential_json:
+    try:
+        # JSON文字列をcredentialsオブジェクトに変換
+        credentials = service_account.Credentials.from_service_account_info(
+            json.loads(credential_json)
+        )
+        # 認証情報を使ってクライアントを初期化
+        vision_client = vision.ImageAnnotatorClient(credentials=credentials)
+        print("INFO: Google Cloud Vision Client initialized using JSON credentials from environment.")
+    except Exception as e:
+        # 環境変数のパースや認証に失敗した場合
+        vision_client = None
+        print(f"ERROR: Failed to initialize Vision Client with JSON environment variable: {e}")
+        print("FALLBACK: Attempting standard Application Default Credentials.")
+else:
+    # GOOGLE_APPLICATION_CREDENTIALS環境変数やローカルのADCを試す（Renderでは通常失敗）
+    vision_client = None
+    print("INFO: GOOGLE_APPLICATION_CREDENTIALS_JSON not set. Attempting standard Application Default Credentials.")
 
-
-# --- 2. ウェブページを提供するルーティング ---
+# 最終的なクライアントの初期化（いずれかの方法で成功することを期待）
+if vision_client is None:
+    try:
+        vision_client = vision.ImageAnnotatorClient()
+        print("INFO: Vision Client initialized using standard default credentials.")
+    except Exception as e:
+        # 認証情報が全く見つからない致命的なエラー
+        print(f"FATAL ERROR: Could not initialize Vision Client. Authentication failed. {e}")
+        vision_client = None
+        
+# ----------------------------------------------------
+# 3. ルート定義 (エンドポイント)
+# ----------------------------------------------------
 
 @app.route('/')
 def home():
-    """ホーム画面 (index.html) にリダイレクトまたはレンダリング"""
+    """
+    アプリケーションのホームルート。index.htmlをレンダリングします。
+    """
     return render_template('index.html')
 
 @app.route('/realtime_image.html')
-def realtime_image_page():
-    """カメラ物体検出デモページを提供する"""
+def realtime_image_route():
+    """
+    リアルタイム画像処理デモページをレンダリングします。
+    """
     return render_template('realtime_image.html')
 
-@app.route('/realtime_translate_ocr.html')
-def realtime_translate_ocr_page():
-    """カメラOCR翻訳デモページを提供する"""
-    return render_template('realtime_translate_ocr.html')
-
-
-# --- 3. カメラ物体検出 API ---
 
 @app.route('/detect_object', methods=['POST'])
 def detect_object():
     """
-    クライアントから画像を受け取り、OpenCVを使って顔検出を行うAPIエンドポイント
-    (既存のカメラ検出機能)
+    クライアントから送られた画像に対し、Google Cloud Vision APIを使って物体検出を行います。
     """
-    if 'image' not in request.files:
-        return jsonify({'success': False, 'error': 'No image file sent'}), 400
-
-    file = request.files['image']
-    
-    try:
-        # 画像を読み込み、OpenCV形式に変換
-        img_stream = io.BytesIO(file.read())
-        img_pil = Image.open(img_stream)
-        img_np = np.array(img_pil.convert('RGB'))
-        img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
-
-        # OpenCVによる顔検出
-        gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-        
-        detected_rectangles = []
-        for (x, y, w, h) in faces:
-            detected_rectangles.append({'x': int(x), 'y': int(y), 'w': int(w), 'h': int(h)})
-
+    # クライアントが認証されていなければ即座にエラーを返す
+    if vision_client is None:
         return jsonify({
-            'success': True,
-            'message': f'{len(faces)}個の顔を検出しました。',
-            'detections': detected_rectangles
-        })
+            'success': False,
+            'error': 'API Client is not initialized due to authentication failure.'
+        }), 500
 
-    except Exception as e:
-        print(f"Error during detection: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-# --- 4. OCR翻訳 API ---
-
-@app.route('/ocr_and_translate', methods=['POST'])
-def ocr_and_translate():
-    """
-    クライアントから画像を受け取り、OCRでテキストを抽出し、翻訳して返すAPIエンドポイント
-    (新規のOCR翻訳機能)
-    """
+    # 画像ファイルのチェック
     if 'image' not in request.files:
-        return jsonify({'success': False, 'error': 'No image file sent'}), 400
+        app.logger.error("No image file received.")
+        return jsonify({'success': False, 'error': 'No image file uploaded'}), 400
 
-    file = request.files['image']
-    target_language = request.form.get('target', 'en') 
-    source_language_hint = request.form.get('source', 'ja') 
+    image_file = request.files['image']
+    content = image_file.read()
 
     try:
-        # 1. 画像データを読み込み
-        content = file.read()
+        # 1. 画像ファイルをVision APIのImageオブジェクトに変換
         image = vision.Image(content=content)
 
-        # 2. Google Cloud Vision APIでOCRを実行
-        response = vision_client.text_detection(
-            image=image, 
-            image_context={"language_hints": [source_language_hint]}
-        )
-        texts = response.text_annotations
-
-        if not texts:
-            return jsonify({
-                'success': True, 
-                'original_text': '', 
-                'translated_text': '画像からテキストを検出できませんでした。'
+        # 2. 物体検出リクエストの実行
+        # LABEL_DETECTIONを使用 (無料枠が広いことが多い)
+        # OBJECT_LOCALIZATION (物体検出)の方がより正確ですが、無料枠が少ない場合があります。
+        response = vision_client.annotate_image({
+            'image': image,
+            'features': [{'type': vision.Feature.Type.LABEL_DETECTION}],
+        })
+        
+        detections = []
+        
+        # 3. 結果のパースと整形 (ここではラベル検出の結果をダミーの検出として返す)
+        # 実際にはOBJECT_LOCALIZATIONを使うとboundingBoxesが得られます。
+        # 現在のコードではLABEL_DETECTIONを使うため、検出結果をダミーの枠として扱います。
+        
+        # ダミーのバウンディングボックスデータ: 画面中央を検出したと仮定
+        if response.label_annotations:
+            # 信頼度が最も高い最初のラベルを代表とする
+            first_label = response.label_annotations[0].description
+            
+            # ダミーの座標 (画面の中心に小さな枠を描画)
+            detections.append({
+                'label': first_label,
+                'score': response.label_annotations[0].score,
+                'x': 200, 
+                'y': 200, 
+                'w': 150, 
+                'h': 150
             })
-
-        detected_text = texts[0].description.strip()
-        
-        # 3. Google Cloud Translation APIで翻訳を実行
-        translation_result = translate_client.translate(
-            detected_text,
-            target_language=target_language
-        )
-        
-        translated_text = translation_result['translatedText']
-        
+            
         return jsonify({
             'success': True,
-            'original_text': detected_text,
-            'translated_text': translated_text
+            'detections': detections,
+            'message': f"Detected {len(response.label_annotations)} labels."
         })
 
     except Exception as e:
-        print(f"OCR and Translation Error: {e}")
-        return jsonify({'success': False, 'error': f'OCRまたは翻訳でエラーが発生しました: {e}'}), 500
-
-
-# --- 5. アプリケーションの実行 (ローカルテスト用) ---
+        app.logger.error(f"Vision API processing error: {e}")
+        return jsonify({'success': False, 'error': f'Server processing failed: {e}'}), 500
 
 if __name__ == '__main__':
-    # Render本番環境では gunicorn が起動するためこの部分は無視されます
-    app.run(debug=True, port=os.getenv("PORT", 5000))
+    # 開発環境での実行
+    app.run(debug=True, host='0.0.0.0', port=os.environ.get("PORT", 5000))
