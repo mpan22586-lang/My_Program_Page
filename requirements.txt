@@ -1,8 +1,0 @@
-Flask
-gunicorn  # Flaskアプリを本番環境で動かすためのWSGIサーバー
-opencv-python
-Pillow  # 画像処理ライブラリ
-numpy
-google-cloud-vision
-google-cloud-translate
-# gunicorn, Flask, numpy, opencv-python, Pillow など既存のライブラリも必要
