@@ -1,0 +1,10 @@
+# RSSおよびAtomフィードを解析するための必須ライブラリ
+feedparser
+
+# データの取得や整形に役立つ補助ライブラリ（任意）
+# PythonでHTTPリクエストを行う必要がある場合に便利です
+requests
+
+# PythonでHTMLやMarkdownファイルを生成するために使用する
+# テンプレートエンジン（JekyllやHugoを使わない場合に特に有用）
+jinja2
