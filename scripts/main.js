@@ -12,10 +12,8 @@ const applicationLayerStatus = document.getElementById(
 
 /**
  * ダミーの暗号化文字列を生成する関数。
- * 実際の暗号化ではないが、暗号文のように見える文字列を生成する。
  */
 function generateEncryptedPayload(length) {
-  // 実際の暗号文を完全に再現するのは不可能なので、見た目だけを模擬
   const chars = "abcdef0123456789";
   let result = "";
   // 元のペイロードより長いダミー文字列を生成して、暗号化後のデータの増加を模擬

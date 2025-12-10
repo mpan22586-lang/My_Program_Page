@@ -10,7 +10,7 @@ body {
 }
 
 .packet-viewer {
-  flex: 1; /* 画面の上半分を占める */
+  flex: 1;
   background-color: #282c34;
   color: #abb2bf;
   padding: 20px;
@@ -38,7 +38,7 @@ body {
 }
 
 .login-section {
-  flex: 1; /* 画面の下半分を占める */
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
