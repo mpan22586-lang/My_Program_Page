@@ -1,79 +1,270 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>フリーWi-Fiパケット盗聴模擬体験（暗号化切り替え付き）</title>
-    <link rel="stylesheet" href="styles/main.css" />
-  </head>
-  <body>
-    <div class="packet-viewer" id="packetViewer">
-      <div class="packet-line">
-        --- 通信プロトコル:
-        <span id="protocolStatusHeader" class="payload-clear"
-          >HTTP (暗号化なし)</span
-        >
-        ---
-      </div>
-      <div class="packet-line"></div>
-      <div class="packet-line">... (ネットワークヘッダー情報) ...</div>
-      <div class="packet-line">Source IP: 192.168.1.100 (あなたのデバイス)</div>
-      <div class="packet-line">Destination IP: 192.0.2.1 (ウェブサーバー)</div>
-      <div class="packet-line">Transport Layer: TCP</div>
-      <div class="packet-line">
-        Application Layer: <span id="applicationLayerStatus">HTTP</span>
-      </div>
-      <div class="packet-line"></div>
-      <div class="packet-line">--- パケットペイロード ---</div>
-      <div class="packet-line packet-payload payload-clear" id="packetPayload">
-        「ログイン」ボタンを押すと、ここにデータが表示されます。<br />
-        現在の設定は「HTTP（暗号化なし）」です。
-      </div>
-    </div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自己紹介 | ポートフォリオ</title>
+  <style>
+    /* ------------------------------
+       1. 全体の基本設定（リセットCSS）
+    ------------------------------ */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-    <div class="login-section">
-      <div class="toggle-container">
-        <span class="toggle-label">通信モード:</span>
-        <label class="switch">
-          <input type="checkbox" id="encryptionToggle" />
-          <span class="slider"></span>
-        </label>
-        <span id="currentStatus" class="protocol-status">HTTP (危険)</span>
+    body {
+      font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f8f9fa;
+    }
+
+    /* ------------------------------
+       2. レイアウト・コンテナ
+    ------------------------------ */
+    .container {
+      width: 90%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 0;
+    }
+
+    /* ------------------------------
+       3. ヒーローセクション（トップ画面）
+    ------------------------------ */
+    .hero {
+      background-color: #2b3a4a;
+      color: #fff;
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .hero-icon {
+      font-size: 3rem;
+      margin-bottom: 10px;
+    }
+
+    .hero h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      letter-spacing: 0.05em;
+    }
+
+    .hero .subtitle {
+      font-size: 1.1rem;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    /* 出身の下にちっちゃく載せる資格スタイル */
+    .cert-sub {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 24px;
+    }
+
+    .hero-greeting {
+      font-size: 1rem;
+      line-height: 1.8;
+      color: #f1f5f9;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ------------------------------
+       4. セクション共通デザイン
+    ------------------------------ */
+    .section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 32px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      
+      /* スクロールアニメーション用初期状態 */
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+
+    .section.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .section h2 {
+      font-size: 1.4rem;
+      color: #2b3a4a;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 8px;
+      margin-bottom: 24px;
+    }
+
+    /* ------------------------------
+       5. 趣味エリア（青色タグ＋アイコン付き）
+    ------------------------------ */
+    .hobbies-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .hobby-tag {
+      background-color: #eff6ff; /* 薄い青 */
+      color: #1d4ed8;            /* 濃い青 */
+      border: 1px solid #bfdbfe;
+      padding: 8px 16px;
+      border-radius: 24px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      transition: transform 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hobby-tag:hover {
+      transform: translateY(-2px);
+    }
+
+    /* ------------------------------
+       6. スキルエリア（グレータグ形式）
+    ------------------------------ */
+    .skills-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .skill-tag {
+      background-color: #f1f5f9;
+      color: #475569;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border: 1px solid #e2e8f0;
+    }
+
+    /* ------------------------------
+       7. フッター
+    ------------------------------ */
+    footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    /* ------------------------------
+       8. スマホ用レスポンシブ調整
+    ------------------------------ */
+    @media (max-width: 768px) {
+      .hero {
+        padding: 50px 15px;
+      }
+      .hero h1 {
+        font-size: 1.6rem;
+      }
+      .container {
+        width: 95%;
+        padding: 24px 0;
+      }
+      .section {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ヒーローセクション -->
+  <header class="hero">
+    <div class="hero-icon">👨‍💻</div>
+    <!-- ★ここをご自身の名前に書き換えてください -->
+    <h1>上原晴輝</h1>
+    <p class="subtitle">茨城県出身｜組み込みエンジニア</p>
+    <!-- 出身の下に控えめに配置 -->
+    <p class="cert-sub">保有資格：基本情報技術者 / 技能士補</p>
+    <p class="hero-greeting">
+      はじめまして！ご覧いただきありがとうございます。<br>
+      これから仲良くしてください！
+    </p>
+  </header>
+
+  <main class="container">
+    
+    <!-- About セクション -->
+    <section class="section fade-in">
+      <h2>About Me</h2>
+      <p style="line-height: 1.8;">
+      共通の話題がある方、ぜひ気軽にお話ししましょう！
+      </p>
+    </section>
+
+    <!-- 趣味 セクション -->
+    <section class="section fade-in">
+      <h2>Hobbies</h2>
+      <div class="hobbies-wrapper">
+        <span class="hobby-tag">👕 古着</span>
+        <span class="hobby-tag">☕ コーヒー</span>
+        <span class="hobby-tag">🚗 ドライブ</span>
+        <span class="hobby-tag">🏊‍♂️ 水泳</span>
+        <span class="hobby-tag">🏸 バドミントン</span>
+        <span class="hobby-tag">🏂 スノーボード</span>
+        <span class="hobby-tag">🔫 サバゲー</span>
+        <span class="hobby-tag">🎬 映画（スターウォーズ、アベンジャーズ）</span>
+        <span class="hobby-tag">🎵 K-POP（aespa, TWICE, BTS）</span>
+        <span class="hobby-tag">🐎 競馬</span>
       </div>
+    </section>
 
-      <form class="login-form" id="loginForm">
-        <h2>🔐 模擬ログインページ</h2>
-        <div class="warning">
-          このページはフリーWi-Fiでの通信の危険性を<br />
-          模擬体験するためのものです。
-        </div>
-        <div class="form-group">
-          <label for="username">ユーザー名</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            placeholder="ユーザー名を入力"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <label for="password">パスワード</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            placeholder="パスワードを入力"
-            required
-          />
-        </div>
-        <div class="form-group">
-          <input type="submit" value="ログイン (模擬)" />
-        </div>
-        <p class="info-text">※入力データはどこにも送信されません。</p>
-      </form>
-    </div>
+    <!-- スキル セクション -->
+    <section class="section fade-in">
+      <h2>Tech & Skills</h2>
+      <div class="skills-wrapper">
+        <span class="skill-tag">C / C++</span>
+        <span class="skill-tag">Python</span>
+        <span class="skill-tag">Java</span>
+        <span class="skill-tag">PHP</span>
+        <span class="skill-tag">HTML / CSS</span>
+        <span class="skill-tag">JavaScript</span>
+        <span class="skill-tag">Arduino</span>
+        <span class="skill-tag">Raspberry Pi</span>
+        <span class="skill-tag">FPGA</span>
+        <span class="skill-tag">OpenCV / YOLO</span>
+        <span class="skill-tag">Linux</span>
+        <span class="skill-tag">ネットワーク</span>
+      </div>
+    </section>
 
-    <script src="scripts/main.js" defer></script>
-  </body>
+  </main>
+
+  <!-- フッター -->
+  <footer>
+    <p>&copy; 2026 Your Name</p>
+  </footer>
+
+  <!-- 動き（アニメーション）をつけるJavaScript -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // スクロールした時に要素をフワッと表示させる処理
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+          }
+        });
+      }, {
+        threshold: 0.1 // 要素が10%見えたらアニメーション開始
+      });
+
+      const fadeElements = document.querySelectorAll('.fade-in');
+      fadeElements.forEach(el => observer.observe(el));
+    });
+  </script>
+</body>
 </html>
